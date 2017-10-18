@@ -1,8 +1,5 @@
-﻿//
-// Mecanimのアニメーションデータが、原点で移動しない場合の Rigidbody付きコントローラ
-// サンプル
-// 2014/03/13 N.Kobyasahi
-//
+﻿#define DVORAK
+
 using UnityEngine;
 using System.Collections;
 
@@ -13,23 +10,37 @@ using System.Collections;
 
 public class UnityChanControlScriptWithRgidBody : MonoBehaviour
 {
+#if DVORAK
+    public enum KEYBOARD_INPUT : int {
+		ACCEL = KeyCode.LeftShift,
+		LEFT = KeyCode.A,
+		RIGHT = KeyCode.E,
+		FORWARD = KeyCode.Comma,
+		BACKWARD = KeyCode.O,
+        JUMP = KeyCode.Space,
+    }
+#else
+    public enum KEYBOARD_INPUT : int
+    {
+        ACCEL = KeyCode.LeftShift,
+        LEFT = KeyCode.A,
+        RIGHT = KeyCode.D,
+        FORWARD = KeyCode.W,
+        BACKWARD = KeyCode.S,
+        JUMP = KeyCode.Space,
+    }
+#endif
 
-	public float lookSmoother = 3.0f;			// a smoothing setting for camera motion
-	public bool useCurves = true;				// Mecanimでカーブ調整を使うか設定する
-												// このスイッチが入っていないとカーブは使われない
-	public float useCurvesHeight = 0.5f;		// カーブ補正の有効高さ（地面をすり抜けやすい時には大きくする）
     public float animspeed = 2.0f;
 
-	public float forwardSpeed = 1.5f;
-    public float runSpeed = 1.5f;
-    public float strafeSpeed = 0.8f;
-	public float rotateSpeed = 2.0f;
-	public float jumpPower = 3.0f; 
+	public float walkSpeed = 1.5f;
+    public float runAmp = 2.0f;
 
 	private CapsuleCollider col;
 	private Rigidbody rb;
 	private float orgColHight;
 	private Vector3 orgVectColCenter;
+    private Vector3 inpVel = Vector3.zero;
     private Vector3 velBeforeJump;
 	
 	private Animator anim;							
@@ -37,7 +48,6 @@ public class UnityChanControlScriptWithRgidBody : MonoBehaviour
 
 	private GameObject cameraObject;	
 		
-// アニメーター各ステートへの参照
 	static int idleState = Animator.StringToHash("Base Layer.Idle");
 	static int locoState = Animator.StringToHash("Base Layer.Locomotion");
 	static int jumpState = Animator.StringToHash("Base Layer.Jump");
@@ -55,21 +65,53 @@ public class UnityChanControlScriptWithRgidBody : MonoBehaviour
 		orgVectColCenter = col.center;
 }
 
+    void SetVelocity(Vector3 velo)
+    {
+        anim.SetFloat("Speed", velo.magnitude);
+        anim.SetFloat("velox", velo.x);
+        anim.SetFloat("veloz", velo.z);
 
+        Quaternion desireRot = Quaternion.FromToRotation(Vector3.forward,
+            velo);
+        desireRot = Quaternion.Slerp(Quaternion.identity, desireRot, Time.deltaTime);
+        desireRot = Quaternion.Euler(new Vector3(0f, desireRot.eulerAngles.y, 0f));
+
+        rb.rotation = rb.rotation * desireRot;
+
+
+    }
     void FixedUpdate()
     {
-        float velox = Input.GetAxis("Horizontal") * strafeSpeed;           
-        float veloz = Input.GetAxis("Vertical") * forwardSpeed;				
-        Vector3 vel = new Vector3(velox, 0, veloz);
-		anim.SetFloat("Speed", vel.magnitude);
-        anim.SetFloat("velox", velox);
-        anim.SetFloat("veloz", veloz);
+        float moveSpeed = walkSpeed;
+        Vector3 movement = Vector3.zero;
+        if (Input.GetKey((KeyCode)KEYBOARD_INPUT.RIGHT))
+        {
+            movement.x += 1;
+        }
+        if (Input.GetKey((KeyCode)KEYBOARD_INPUT.LEFT))
+        {
+            movement.x -= 1;
+        }
+        if (Input.GetKey((KeyCode)KEYBOARD_INPUT.FORWARD))
+        {
+            movement.z += 1;
+        }
+        if (Input.GetKey((KeyCode)KEYBOARD_INPUT.BACKWARD))
+        {
+            movement.z -= 1;
+        }
+        if (Input.GetKey(KeyCode.LeftShift))
+        {
+            moveSpeed *= runAmp;
+        }
+        inpVel = Vector3.Lerp(inpVel, movement * moveSpeed, Time.deltaTime);
+        SetVelocity(inpVel);
 
-		currentBaseState = anim.GetCurrentAnimatorStateInfo(0);	
+        currentBaseState = anim.GetCurrentAnimatorStateInfo(0);	
 		rb.useGravity = true;	
 		
 		
-		if (Input.GetButtonDown("Jump")) {	
+		if (Input.GetKeyDown((KeyCode) KEYBOARD_INPUT.JUMP)) {	
 			if (currentBaseState.fullPathHash != jumpState){
 				if(!anim.IsInTransition(0))
 				{
@@ -82,9 +124,9 @@ public class UnityChanControlScriptWithRgidBody : MonoBehaviour
 		else if(currentBaseState.fullPathHash == jumpState)
 		{
 			cameraObject.SendMessage("setCameraPositionJumpView");
-            if (vel.magnitude > 0.1)
+            if (inpVel.magnitude > 0.1)
             {
-                rb.velocity = velBeforeJump;
+                rb.velocity = 1.5f * velBeforeJump;
             }
 			if(!anim.IsInTransition(0))
 			{
