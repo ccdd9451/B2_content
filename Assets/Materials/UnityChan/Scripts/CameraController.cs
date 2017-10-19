@@ -18,158 +18,137 @@ using System.Collections;
 
 namespace CameraController
 {
-	enum MouseButtonDown
-	{
-		MBD_LEFT = 0,
-		MBD_RIGHT,
-		MBD_MIDDLE,
-	};
+    enum MouseButtonDown
+    {
+        MBD_LEFT = 0,
+        MBD_RIGHT,
+        MBD_MIDDLE,
+    };
 
-	public class CameraController : MonoBehaviour
-	{
-		[SerializeField]
-		private Vector3 focus = Vector3.zero;
-		[SerializeField]
-		private GameObject focusObj = null;
+    public class CameraController : MonoBehaviour
+    {
 
-		public bool showInstWindow = true;
+        private Vector3 focus = Vector3.zero;
 
-		private Vector3 oldPos;
+        public Camera cam;    
+        public GameObject focusObj;
+        public GameObject activatedChan;
 
-		void setupFocusObject(string name)
-		{
-			GameObject obj = this.focusObj = new GameObject(name);
-			obj.transform.position = this.focus;
-			obj.transform.LookAt(this.transform.position);
+        private Vector3 oldPos;
 
-			return;
-		}
+        void setupFocusObject(string name)
+        {
+            GameObject obj = this.focusObj = new GameObject(name);
+            obj.transform.position = this.focus;
+            obj.transform.LookAt(this.transform.position);
 
-		void Start ()
-		{
-			if (this.focusObj == null)
-				this.setupFocusObject("CameraFocusObject");
+            return;
+        }
 
-			Transform trans = this.transform;
-			transform.parent = this.focusObj.transform;
+        void Start()
+        {
 
-			trans.LookAt(this.focus);
+            Transform trans = this.transform;
+            transform.parent = this.focusObj.transform;
 
-			return;
-		}
-	
-		void Update ()
-		{
-			this.mouseEvent();
+            trans.LookAt(this.focus);
 
-			return;
-		}
+            return;
+        }
 
-		//Show Instrustion Window
-		void OnGUI()
-		{
-			if(showInstWindow){
-				GUI.Box(new Rect(Screen.width -210, Screen.height - 100, 200, 90), "Camera Operations");
-				GUI.Label(new Rect(Screen.width -200, Screen.height - 80, 200, 30),"RMB / Alt+LMB: Tumble");
-				GUI.Label(new Rect(Screen.width -200, Screen.height - 60, 200, 30),"MMB / Alt+Cmd+LMB: Track");
-				GUI.Label(new Rect(Screen.width -200, Screen.height - 40, 200, 30),"Wheel / 2 Fingers Swipe: Dolly");
-			}
+        void Update()
+        {
+            this.mouseEvent();
 
-		}
+            return;
+        }
 
-		void mouseEvent()
-		{
-			float delta = Input.GetAxis("Mouse ScrollWheel");
-			if (delta != 0.0f)
-				this.mouseWheelEvent(delta);
 
-			if (Input.GetMouseButtonDown((int)MouseButtonDown.MBD_LEFT) ||
-				Input.GetMouseButtonDown((int)MouseButtonDown.MBD_MIDDLE) ||
-				Input.GetMouseButtonDown((int)MouseButtonDown.MBD_RIGHT))
-				this.oldPos = Input.mousePosition;
 
-			this.mouseDragEvent(Input.mousePosition);
+        void mouseEvent()
+        {
+            float delta = Input.GetAxis("Mouse ScrollWheel");
+            if (delta != 0.0f)
+                this.mouseWheelEvent(delta);
 
-			return;
-		}
+            if (Input.GetMouseButtonDown((int)MouseButtonDown.MBD_LEFT))
+                toggleAct();
 
-		void mouseDragEvent(Vector3 mousePos)
-		{
-			Vector3 diff = mousePos - oldPos;
+            if (Input.GetMouseButtonDown((int)MouseButtonDown.MBD_RIGHT))
+                commandToMove();
 
-			if(Input.GetMouseButton((int)MouseButtonDown.MBD_LEFT))
-			{
-				//Operation for Mac : "Left Alt + Left Command + LMB Drag" is Track
-				if(Input.GetKey(KeyCode.LeftAlt) && Input.GetKey(KeyCode.LeftCommand))
-				{
-					if (diff.magnitude > Vector3.kEpsilon)
-						this.cameraTranslate(-diff / 100.0f);
-				}
-				//Operation for Mac : "Left Alt + LMB Drag" is Tumble
-				else if (Input.GetKey(KeyCode.LeftAlt))
-				{
-					if (diff.magnitude > Vector3.kEpsilon)
-						this.cameraRotate(new Vector3(diff.y, diff.x, 0.0f));
-				}
-				//Only "LMB Drag" is no action.
-			}
-			//Track
-			else if (Input.GetMouseButton((int)MouseButtonDown.MBD_MIDDLE))
-			{
-				if (diff.magnitude > Vector3.kEpsilon)
-					this.cameraTranslate(-diff / 100.0f);
-			}
-			//Tumble
-			else if (Input.GetMouseButton((int)MouseButtonDown.MBD_RIGHT))
-			{
-				if (diff.magnitude > Vector3.kEpsilon)
-					this.cameraRotate(new Vector3(diff.y, diff.x, 0.0f));
-			}
-				
-			this.oldPos = mousePos;	
+        }
+        
+        void toggleAct()
+        {
+            RaycastHit hit;
+            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
 
-			return;
-		}
+            if (Physics.Raycast(ray, out hit))
+            {
+                GameObject obj = hit.transform.gameObject;
 
-		//Dolly
-		public void mouseWheelEvent(float delta)
-		{
-			Vector3 focusToPosition = this.transform.position - this.focus;
 
-			Vector3 post = focusToPosition * (1.0f + delta);
+                if (obj.tag == "chan")
+                {
+                    obj.GetComponent<UnityChanNavController>().toggleActivation();
+                }
+            }
+        }
+        void commandToMove()
+        {
+            RaycastHit hit;
+            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
 
-			if (post.magnitude > 0.01)
-				this.transform.position = this.focus + post;
+            if (Physics.Raycast(ray, out hit))
+            {
+                Vector3 pos = hit.transform.position;
+                foreach (UnityChanNavController c 
+                    in activatedChan.GetComponentsInChildren<UnityChanNavController>())
+                {
+                    c.setDestination(pos);
+                }
+            }
+        }
 
-			return;
-		}
+        public void mouseWheelEvent(float delta)
+        {
+            Vector3 focusToPosition = this.transform.position - this.focus;
 
-		void cameraTranslate(Vector3 vec)
-		{
-			Transform focusTrans = this.focusObj.transform;
+            Vector3 post = focusToPosition * (1.0f + delta);
 
-			vec.x *= -1;
+            if (post.magnitude > 0.01)
+                this.transform.position = this.focus + post;
 
-			focusTrans.Translate(Vector3.right * vec.x);
-			focusTrans.Translate(Vector3.up * vec.y);
+            return;
+        }
 
-			this.focus = focusTrans.position;
+        void cameraTranslate(Vector3 vec)
+        {
+            Transform focusTrans = this.focusObj.transform;
 
-			return;
-		}
+            vec.x *= -1;
 
-		public void cameraRotate(Vector3 eulerAngle)
-		{
-			//Use Quaternion to prevent rotation flips on XY plane
-			Quaternion q = Quaternion.identity;
- 
-			Transform focusTrans = this.focusObj.transform;
-			focusTrans.localEulerAngles = focusTrans.localEulerAngles + eulerAngle;
+            focusTrans.Translate(Vector3.right * vec.x);
+            focusTrans.Translate(Vector3.up * vec.y);
 
-			//Change this.transform.LookAt(this.focus) to q.SetLookRotation(this.focus)
-			q.SetLookRotation (this.focus) ;
+            this.focus = focusTrans.position;
 
-			return;
-		}
-	}
+            return;
+        }
+
+        public void cameraRotate(Vector3 eulerAngle)
+        {
+            //Use Quaternion to prevent rotation flips on XY plane
+            Quaternion q = Quaternion.identity;
+
+            Transform focusTrans = this.focusObj.transform;
+            focusTrans.localEulerAngles = focusTrans.localEulerAngles + eulerAngle;
+
+            //Change this.transform.LookAt(this.focus) to q.SetLookRotation(this.focus)
+            q.SetLookRotation(this.focus);
+
+            return;
+        }
+    }
 }

@@ -13,20 +13,20 @@ public class UnityChanControlScriptWithRgidBody : MonoBehaviour
     public enum KEYBOARD_INPUT : int
     {
         ACCEL = KeyCode.LeftShift,
-        LEFT = KeyCode.A,
-        RIGHT = KeyCode.E,
-        FORWARD = KeyCode.Comma,
-        BACKWARD = KeyCode.O,
+        LEFT = KeyCode.LeftArrow,
+        RIGHT = KeyCode.RightArrow,
+        FORWARD = KeyCode.UpArrow,
+        BACKWARD = KeyCode.DownArrow,
         JUMP = KeyCode.Space,
     }
 #else
     public enum KEYBOARD_INPUT : int
     {
         ACCEL = KeyCode.LeftShift,
-        LEFT = KeyCode.A,
-        RIGHT = KeyCode.D,
-        FORWARD = KeyCode.W,
-        BACKWARD = KeyCode.S,
+        LEFT = KeyCode.LeftArrow,
+        RIGHT = KeyCode.RightArrow,
+        FORWARD = KeyCode.UpArrow,
+        BACKWARD = KeyCode.DownArrow,
         JUMP = KeyCode.Space,
     }
 #endif
@@ -61,7 +61,7 @@ public class UnityChanControlScriptWithRgidBody : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         cameraObject = GameObject.FindWithTag("MainCamera");
         col = GetComponent<CapsuleCollider>();
-        footRef = GameObject.Find("Character1_RightFoot");
+        footRef = GameObject.Find("Character1_RightFoot1");
         colOffset = col.center.y;
     }
 
